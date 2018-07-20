@@ -4,3 +4,4 @@ vendor
 *.iml
 bom.yml
 uploader.sh
+downloader.sh

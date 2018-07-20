@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 
 	minio "github.com/minio/minio-go"
 	"github.com/pivotalservices/bom-mgmt/model"
@@ -35,9 +36,10 @@ func (c *UploadBitsCommand) Execute([]string) error {
 		return err
 	}
 
-	allBits := model.GetAllBits(c.BitsDir, dat)
+	bom := model.GetBom(c.BitsDir, dat)
+	allBits := bom.Bits
 
-	if err = validateBits(allBits); err != nil {
+	if err = validateBits(allBits, c.BitsDir); err != nil {
 		log.Fatalln(err)
 		return err
 	}
@@ -56,7 +58,8 @@ func (c *UploadBitsCommand) Execute([]string) error {
 	log.Printf("Successfully created %s\n", c.Bucket)
 
 	for _, file := range allBits {
-		n, err := minioClient.FPutObject(c.Bucket, file.Name, file.Path, minio.PutObjectOptions{ContentType: file.ContentType})
+		filePath := filepath.Join(c.BitsDir, "resources", file.ResourceType)
+		n, err := minioClient.FPutObject(c.Bucket, filepath.Join("resources", file.ResourceType, file.Name), filepath.Join(filePath, file.Name), minio.PutObjectOptions{ContentType: file.ContentType})
 		if err != nil {
 			log.Fatalln(err)
 			return err
@@ -67,10 +70,11 @@ func (c *UploadBitsCommand) Execute([]string) error {
 	return nil
 }
 
-func validateBits(allBits []model.MinioObject) error {
+func validateBits(allBits []model.MinioObject, bitsDir string) error {
 	for _, file := range allBits {
-		if _, err := os.Stat(file.Path); os.IsNotExist(err) {
-			return errors.New(file.Path + " is not present")
+		filePath := filepath.Join(bitsDir, "resources", file.ResourceType)
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			return errors.New(filePath + " is not present")
 		}
 	}
 	return nil

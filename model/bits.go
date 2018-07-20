@@ -7,25 +7,29 @@ import (
 )
 
 type MinioObject struct {
-	Name        string `yaml:"name"`
-	Path        string
-	ContentType string `yaml:"contentType"`
+	Name         string `yaml:"name"`
+	ContentType  string `yaml:"contentType"`
+	ResourceType string `yaml:"resourceType"`
+	URL          string `yaml:"url"`
+	ProductSlug  string `yaml:"productSlug"`
+	Version      string `yaml:"version"`
+	ImageName    string `yaml:"imageName"`
+	GitRepo      string `yaml:"gitRepo"`
+	Branch       string `yaml:"branch"`
 }
 
 type Bom struct {
-	Bits []MinioObject `yaml:"bits"`
+	Bits             []MinioObject `yaml:"bits"`
+	PivnetToken      string        `yaml:"pivnet_token"`
+	MyVmwareUser     string        `yaml:"myvmware_user"`
+	MyVmwarePassword string        `yaml:"myvmware_password"`
 }
 
-func GetAllBits(path string, bomBytes []byte) []MinioObject {
+func GetBom(path string, bomBytes []byte) Bom {
 	var bom Bom
 	if err := yaml.UnmarshalStrict(bomBytes, &bom); err != nil {
 		log.Fatalln("unable to parse bom " + err.Error())
 	}
 
-	for i, _ := range bom.Bits {
-		thisBit := &bom.Bits[i]
-		thisBit.Path = path + "/" + thisBit.Name
-	}
-
-	return bom.Bits
+	return bom
 }
