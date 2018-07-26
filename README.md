@@ -94,7 +94,7 @@ All of the necessary parameters can either be passed on the command line or as e
 | ---------- | --------------------- | ------------------------------------------- | ------------------ |
 |file        | url                   |                                             | the specified file |
 |git         | branch, gitRepo       |                                             | .zip of the repo   |
-|docker(WIP) | imageName             | Uses docker environment from machine        | .tgz of the image  |
+|docker      | imageName             | Uses docker environment from machine        | .tgz of the image  |
 |vmware      |                       | Need to provide myvmware credentials in BoM | the specified file |
 |pivnet      | productSlug, version  | Need to provide pivnetToken in Bom          | the specified file |
 
