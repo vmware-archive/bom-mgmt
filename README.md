@@ -90,13 +90,13 @@ All of the necessary parameters can either be passed on the command line or as e
 
 ### Resource Types
 
-| Type  | Additional BoM Params | Requirements                                | Output             |
-| ----- | --------------------- | ------------------------------------------- | ------------------ |
-|file   | url                   |                                             | the specified file |
-|git    | branch, gitRepo       |                                             | .zip of the repo   |
-|docker | imageName             | Uses docker environment from machine        | .tgz of the image  |
-|vmware |                       | Need to provide myvmware credentials in BoM | the specified file |
-|pivnet | productSlug, version  | Need to provide pivnetToken in Bom          | the specified file |
+| Type       | Additional BoM Params | Requirements                                | Output             |
+| ---------- | --------------------- | ------------------------------------------- | ------------------ |
+|file        | url                   |                                             | the specified file |
+|git         | branch, gitRepo       |                                             | .zip of the repo   |
+|docker(WIP) | imageName             | Uses docker environment from machine        | .tgz of the image  |
+|vmware      |                       | Need to provide myvmware credentials in BoM | the specified file |
+|pivnet      | productSlug, version  | Need to provide pivnetToken in Bom          | the specified file |
 
 ## Assumptions
 
