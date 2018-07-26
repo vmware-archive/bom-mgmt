@@ -1,8 +1,7 @@
 package commands
 
 import (
-	"archive/tar"
-	"compress/gzip"
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -10,8 +9,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"docker.io/go-docker"
@@ -137,35 +136,35 @@ func DownloadDocker(imageName, path, fileName string) {
 	copyMetadata(path + "/" + imageName)
 	imagePath := filepath.Join(path, imageName)
 
-	cli, err := docker.NewEnvClient()
-	check(err)
-
-	images, err := cli.ImageList(context.Background(), types.ImageListOptions{All: true})
-	found := false
-	for _, image := range images {
-		for _, digest := range image.RepoDigests {
-			if strings.Contains(strings.Split(digest, "@")[0], imageName) {
-				found = true
-			}
-		}
-	}
-
-	if found == false {
-		log.Println("pulling image for " + imageName)
-		out, err := cli.ImagePull(context.Background(), imageName, types.ImagePullOptions{})
-		check(err)
-		defer out.Close()
-		io.Copy(os.Stdout, out)
-	}
-
 	cid := runContainer(imageName)
 
-	readCloser, err := cli.ContainerExport(context.Background(), cid)
-	Untar(imagePath+"/rootfs", readCloser)
-	file, err := os.Create(filepath.Join(path, fileName))
+	cmd := exec.Command("docker", "export", cid)
+
+	file, err := os.Create(filepath.Join(imagePath, "rootfs.tar"))
 	defer file.Close()
 	check(err)
-	Tar(imagePath, file)
+
+	stdoutPipe, err := cmd.StdoutPipe()
+	check(err)
+
+	writer := bufio.NewWriter(file)
+	defer writer.Flush()
+
+	err = cmd.Start()
+	check(err)
+
+	go io.Copy(writer, stdoutPipe)
+	cmd.Wait()
+
+	//Untar
+	cmd = exec.Command("tar", "-xvf", filepath.Join(imagePath, "rootfs.tar"), "-C", filepath.Join(imagePath, "rootfs/"), "--exclude='dev/*'")
+	cmd.Run()
+	//remove the tar file
+	cmd = exec.Command("rm", filepath.Join(imagePath, "rootfs.tar"))
+	cmd.Run()
+	//tar the metadata.json and rootfs folder together
+	cmd = exec.Command("tar", "-czf", filepath.Join(path, fileName), "-C", imagePath, ".")
+	cmd.Run()
 
 }
 
@@ -192,122 +191,7 @@ func runContainer(imageName string) string {
 	err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
 	check(err)
 
-	fmt.Println(resp)
 	return resp.ID
-}
-
-// Untar takes a destination path and a reader; a tar reader loops over the tarfile
-// creating the file structure at 'dst' along the way, and writing any files
-func Untar(dst string, r io.Reader) error {
-
-	// gzr, err := gzip.NewReader(r)
-	// defer gzr.Close()
-	// if err != nil {
-	// 	return err
-	// }
-
-	tr := tar.NewReader(r)
-
-	for {
-		header, err := tr.Next()
-
-		switch {
-
-		// if no more files are found return
-		case err == io.EOF:
-			return nil
-
-		// return any other error
-		case err != nil:
-			return err
-
-		// if the header is nil, just skip it (not sure how this happens)
-		case header == nil:
-			continue
-		}
-
-		// the target location where the dir/file should be created
-		target := filepath.Join(dst, header.Name)
-
-		// the following switch could also be done using fi.Mode(), not sure if there
-		// a benefit of using one vs. the other.
-		// fi := header.FileInfo()
-
-		// check the file type
-		switch header.Typeflag {
-
-		// if its a dir and it doesn't exist create it
-		case tar.TypeDir:
-			if _, err := os.Stat(target); err != nil {
-				if err := os.MkdirAll(target, 0755); err != nil {
-					return err
-				}
-			}
-
-		// if it's a file create it
-		case tar.TypeReg:
-			f, err := os.OpenFile(target, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))
-			if err != nil {
-				return err
-			}
-			defer f.Close()
-
-			// copy over contents
-			if _, err := io.Copy(f, tr); err != nil {
-				return err
-			}
-		}
-	}
-}
-
-func Tar(directory string, writers ...io.Writer) error {
-
-	log.Println("Tarring " + directory)
-
-	// ensure the src actually exists before trying to tar it
-	if _, err := os.Stat(directory); err != nil {
-		return fmt.Errorf("Unable to tar files - %v", err.Error())
-	}
-
-	mw := io.MultiWriter(writers...)
-
-	gzw := gzip.NewWriter(mw)
-	defer gzw.Close()
-
-	tw := tar.NewWriter(gzw)
-	defer tw.Close()
-
-	// walk path
-	return filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
-		check(err)
-
-		var link string
-		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
-			_, err = os.Readlink(path)
-			check(err)
-		}
-
-		header, err := tar.FileInfoHeader(info, link)
-		check(err)
-
-		header.Name = filepath.Join(".", strings.TrimPrefix(path, directory))
-		log.Println(header.Name)
-		err = tw.WriteHeader(header)
-		check(err)
-
-		if !info.Mode().IsRegular() { //nothing more to do for non-regular
-			return nil
-		}
-
-		fh, err := os.Open(path)
-		check(err)
-		defer fh.Close()
-
-		_, err = io.Copy(tw, fh)
-		check(err)
-
-		return nil
-	})
 }
 
 func copyMetadata(path string) {
