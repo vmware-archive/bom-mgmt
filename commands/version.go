@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-var VERSION = "0.0.1-dev"
+var VERSION = "1.0.0"
 
 type VersionCommand struct {
 }
