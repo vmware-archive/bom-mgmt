@@ -9,6 +9,7 @@ This product utilizes a YAML file structure that lays out a bill of materials li
 pivnet_token: abcdefghijklmnop
 myvmware_user: user@foo.com
 myvmware_password: password1!
+iaas: vsphere
 bits:
 - name: abc.txt
   contentType: text/plain
