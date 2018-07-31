@@ -3,6 +3,7 @@ package commands
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +12,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"docker.io/go-docker"
@@ -42,18 +45,27 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 		switch resourceType := file.ResourceType; resourceType {
 		case "file":
 			DownloadFile(filePath, file.URL)
-		case "pivnet-non-tile", "pivnet-tile":
-			DownloadPivnet(&pivnet.DownloadProductFilesCommand{
+		case "pivnet-non-tile":
+			DownloadPivnetNonTile(&pivnet.DownloadProductFilesCommand{
 				ProductSlug:    file.ProductSlug,
 				ReleaseVersion: file.Version,
 				DownloadDir:    fileDir,
-				AcceptEULA:     true,
-				Globs:          []string{"*"},
+				AcceptEULA:     false,
+				Globs:          file.Globs,
 			}, bom.PivnetToken)
+		case "pivnet-tile":
+			os.MkdirAll(filepath.Join(fileDir, file.ProductSlug), os.ModePerm)
+			DownloadPivnetTile(&pivnet.DownloadProductFilesCommand{
+				ProductSlug:    file.ProductSlug,
+				ReleaseVersion: file.Version,
+				DownloadDir:    filepath.Join(fileDir, file.ProductSlug),
+				AcceptEULA:     false,
+				Globs:          file.Globs,
+			}, bom.PivnetToken, bom.Iaas, file.Name)
 		case "docker":
 			DownloadDocker(file.ImageName, fileDir, file.Name)
 		case "git":
-			url := file.GitRepo + "/archive/" + file.Branch + ".zip"
+			url := file.GitRepo + "/tarball/" + file.Branch
 			DownloadFile(filePath, url)
 		case "vmware":
 			DownloadVMWare(file.Name, fileDir)
@@ -86,7 +98,7 @@ func DownloadFile(filepath, url string) {
 	check(err)
 }
 
-func DownloadPivnet(c *pivnet.DownloadProductFilesCommand, token string) {
+func loginPivnet(token string) {
 	pivnet.Pivnet.ProfileName = "default"
 	login := &pivnet.LoginCommand{
 		APIToken: token,
@@ -94,9 +106,56 @@ func DownloadPivnet(c *pivnet.DownloadProductFilesCommand, token string) {
 	}
 	err := login.Execute(make([]string, 0))
 	check(err)
+}
 
-	err = c.Execute(make([]string, 0))
+func downloadPivnet(c *pivnet.DownloadProductFilesCommand) {
+	err := c.Execute(make([]string, 0))
 	check(err)
+}
+
+func DownloadPivnetTile(c *pivnet.DownloadProductFilesCommand, token, iaas, fileName string) {
+	loginPivnet(token)
+	downloadPivnet(c)
+
+	//stemcell stuff
+	stemcellVersion := runStemcellScript(c.DownloadDir)
+
+	downloadStemcellCmd := &pivnet.DownloadProductFilesCommand{
+		ProductSlug:    "stemcells",
+		ReleaseVersion: stemcellVersion,
+		DownloadDir:    c.DownloadDir,
+		AcceptEULA:     false,
+		Globs:          []string{"*" + iaas + "*"},
+	}
+
+	err := downloadStemcellCmd.Execute(make([]string, 0))
+
+	if err != nil {
+		err := errors.New("init")
+		i := 100
+		for found := true; found; found = (err != nil && i > 0) {
+			i--
+			downloadStemcellCmd := &pivnet.DownloadProductFilesCommand{
+				ProductSlug:    "stemcells",
+				ReleaseVersion: stemcellVersion + "." + strconv.Itoa(i),
+				DownloadDir:    c.DownloadDir,
+				AcceptEULA:     false,
+				Globs:          []string{"*" + iaas + "*"},
+			}
+			err = downloadStemcellCmd.Execute(make([]string, 0))
+		}
+	}
+	check(err)
+
+	os.MkdirAll(c.DownloadDir+"-tarball", os.ModePerm)
+	cmd := exec.Command("tar", "-czf", filepath.Join(c.DownloadDir+"-tarball", fileName), "-C", c.DownloadDir, ".")
+	cmd.Run()
+
+}
+
+func DownloadPivnetNonTile(c *pivnet.DownloadProductFilesCommand, token string) {
+	loginPivnet(token)
+	downloadPivnet(c)
 }
 
 func DownloadVMWare(fileName, fileDir string) {
@@ -132,9 +191,12 @@ func DownloadVMWare(fileName, fileDir string) {
 }
 
 func DownloadDocker(imageName, path, fileName string) {
+	if _, err := os.Stat(filepath.Join(path, fileName)); os.IsExist(err) {
+		return
+	}
 	os.MkdirAll(path+"/"+imageName+"/rootfs", os.ModePerm)
-	copyMetadata(path + "/" + imageName)
 	imagePath := filepath.Join(path, imageName)
+	copyMetadata(imagePath)
 
 	cid := runContainer(imageName)
 
@@ -185,6 +247,7 @@ func runContainer(imageName string) string {
 
 	resp, err := cli.ContainerCreate(ctx, &container.Config{
 		Image: imageName,
+		Cmd:   []string{"/bin/sh"},
 	}, nil, nil, "")
 	check(err)
 
@@ -197,6 +260,22 @@ func runContainer(imageName string) string {
 func copyMetadata(path string) {
 	err := ioutil.WriteFile(path+"/metadata.json", model.DockerMetadata, 0644)
 	check(err)
+}
+
+func runStemcellScript(path string) string {
+	cmd := fmt.Sprintf("find \"%s\" -name *.pivotal | sort | head -1", path)
+	fileName, err := exec.Command("sh", "-c", cmd).Output()
+	check(err)
+
+	cmd = fmt.Sprintf("unzip -l \"%s\" | grep \"metadata\" | grep 'ml$' | awk '{print $NF}'", strings.Trim(string(fileName), "\n"))
+	metadata, err := exec.Command("sh", "-c", cmd).Output()
+	check(err)
+
+	cmd = fmt.Sprintf("unzip -p \"%s\" \"%s\" | grep -A5 'stemcell_criteria:' | grep 'version:' | grep -Ei '[0-9]' | awk '{print $NF}' | sed \"s/'//g;s/\\\"//g\"", strings.Trim(string(fileName), "\n"), strings.Trim(string(metadata), "\n"))
+	version, err := exec.Command("sh", "-c", cmd).Output()
+	check(err)
+
+	return strings.Trim(string(version), "\n")
 }
 
 func writeMyVmwareCreds(bom model.Bom) {

@@ -7,15 +7,16 @@ import (
 )
 
 type MinioObject struct {
-	Name         string `yaml:"name"`
-	ContentType  string `yaml:"contentType"`
-	ResourceType string `yaml:"resourceType"`
-	URL          string `yaml:"url"`
-	ProductSlug  string `yaml:"productSlug"`
-	Version      string `yaml:"version"`
-	ImageName    string `yaml:"imageName"`
-	GitRepo      string `yaml:"gitRepo"`
-	Branch       string `yaml:"branch"`
+	Name         string   `yaml:"name"`
+	ContentType  string   `yaml:"contentType"`
+	ResourceType string   `yaml:"resourceType"`
+	URL          string   `yaml:"url"`
+	ProductSlug  string   `yaml:"productSlug"`
+	Globs        []string `yaml:"globs"`
+	Version      string   `yaml:"version"`
+	ImageName    string   `yaml:"imageName"`
+	GitRepo      string   `yaml:"gitRepo"`
+	Branch       string   `yaml:"branch"`
 }
 
 type Bom struct {
@@ -23,6 +24,7 @@ type Bom struct {
 	PivnetToken      string        `yaml:"pivnet_token"`
 	MyVmwareUser     string        `yaml:"myvmware_user"`
 	MyVmwarePassword string        `yaml:"myvmware_password"`
+	Iaas             string        `yaml:"iaas"`
 }
 
 func GetBom(path string, bomBytes []byte) Bom {

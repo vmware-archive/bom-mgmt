@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	parser := flags.NewParser(&commands.UploaderCommands, flags.HelpFlag)
+	parser := flags.NewParser(&commands.BoMCommands, flags.HelpFlag)
 	parser.NamespaceDelimiter = "-"
 
 	_, err := parser.Parse()

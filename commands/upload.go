@@ -59,7 +59,12 @@ func (c *UploadBitsCommand) Execute([]string) error {
 
 	for _, file := range allBits {
 		filePath := filepath.Join(c.BitsDir, "resources", file.ResourceType)
-		n, err := minioClient.FPutObject(c.Bucket, filepath.Join("resources", file.ResourceType, file.Name), filepath.Join(filePath, file.Name), minio.PutObjectOptions{ContentType: file.ContentType})
+		bucketPath := filepath.Join("resources", file.ResourceType)
+		if file.ResourceType == "pivnet-tile" {
+			filePath = filepath.Join(filePath, file.ProductSlug+"-tarball")
+			bucketPath = filepath.Join(bucketPath, file.ProductSlug+"-tarball")
+		}
+		n, err := minioClient.FPutObject(c.Bucket, filepath.Join(bucketPath, file.Name), filepath.Join(filePath, file.Name), minio.PutObjectOptions{ContentType: file.ContentType})
 		if err != nil {
 			log.Fatalln(err)
 			return err

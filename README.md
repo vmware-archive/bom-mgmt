@@ -10,27 +10,34 @@ pivnet_token: abcdefghijklmnop
 myvmware_user: user@foo.com
 myvmware_password: password1!
 bits:
+- name: abc.txt
+  contentType: text/plain
+  resourceType: file
+  url: https://foo.com/download/abc.txt
 - name: repo.zip
   contentType: application/zip
   resourceType: git
   branch: master
   gitRepo: https://github.com/myuser/repo
-- name: abc.txt
-  contentType: text/plain
-  resourceType: file
-  url: https://foo.com/download/abc.txt
-- name: vmware_tool.ova
-  contentType: application/vmware
-  resourceType: vmware
 - name: ubuntu.tgz
   contentType: application/gzip
   resourceType: docker
   imageName: ubuntu
-- name: bbr-1.2.4.tar
-  contentType: application/tar
-  resourceType: pivnet
-  productSlug: p-bosh-backup-and-restore
-  version: 1.2.4
+- name: vmware_tool.ova
+  contentType: application/vmware
+  resourceType: vmware
+- name: pivotal-container-service-1.1.2.tgz
+  contentType: application/gzip
+  productSlug: pivotal-container-service
+  version: 1.1.2
+  globs: ["*.pivotal"]
+  resourceType: pivnet-tile
+- name: pcf-ops-manager-2.2.1.ova
+  contentType: application/vmware
+  productSlug: ops-manager
+  version: 2.2.1
+  globs: ["*vsphere*"]
+  resourceType: pivnet-non-tile
 ```
 
 ## Build from the source
@@ -90,13 +97,14 @@ All of the necessary parameters can either be passed on the command line or as e
 
 ### Resource Types
 
-| Type       | Additional BoM Params | Requirements                                | Output             |
-| ---------- | --------------------- | ------------------------------------------- | ------------------ |
-|file        | url                   |                                             | the specified file |
-|git         | branch, gitRepo       |                                             | .zip of the repo   |
-|docker      | imageName             | Uses docker environment from machine        | .tgz of the image  |
-|vmware      |                       | Need to provide myvmware credentials in BoM | the specified file |
-|pivnet      | productSlug, version  | Need to provide pivnetToken in Bom          | the specified file |
+| Type           | Additional BoM Params        | Requirements                                | Output                           |
+| -------------- | ---------------------------- | ------------------------------------------- | -------------------------------- |
+|file            | url                          |                                             | the specified file               |
+|git             | branch, gitRepo              |                                             | .zip of the repo                 |
+|docker          | imageName                    | Uses docker environment from machine        | .tgz of the image                |
+|vmware          |                              | Need to provide myvmware credentials in BoM | the specified file               |
+|pivnet-tile     | productSlug, globs, version  | Need to provide pivnetToken in Bom          | .tgz of tile and needed stemcell |
+|pivnet-non-tile | productSlug, globs, version  | Need to provide pivnetToken in Bom          | the specified file               |
 
 ## Assumptions
 
