@@ -65,8 +65,7 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 		case "docker":
 			DownloadDocker(file.ImageName, fileDir, file.Name)
 		case "git":
-			url := file.GitRepo + "/tarball/" + file.Branch
-			DownloadFile(filePath, url)
+			DownloadGit(filePath, file.GitRepo, file.Branch, fileDir)
 		case "vmware":
 			DownloadVMWare(file.Name, fileDir)
 		default:
@@ -79,11 +78,11 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 
 // DownloadFile will download a url to a local file. It's efficient because it will
 // write as it downloads and not load the whole file into memory.
-func DownloadFile(filepath, url string) {
-	log.Println("Downloading " + filepath + " from " + url)
+func DownloadFile(filePath, url string) {
+	log.Println("Downloading " + filePath + " from " + url)
 
 	// Create the file
-	out, err := os.Create(filepath)
+	out, err := os.Create(filePath)
 	check(err)
 	defer out.Close()
 
@@ -96,6 +95,29 @@ func DownloadFile(filepath, url string) {
 	// Write the body to file
 	_, err = io.Copy(out, resp.Body)
 	check(err)
+}
+
+func DownloadGit(filePath, repo, branch, fileDir string) {
+	url := repo + "/tarball/" + branch
+	DownloadFile(filePath, url)
+
+	repoName := strings.Split(repo, "/")[len(strings.Split(repo, "/"))-1]
+	log.Println(repoName)
+
+	os.MkdirAll(filepath.Join(fileDir, repoName), os.ModePerm)
+
+	cmd := exec.Command("tar", "xzf", filePath, "--strip=1", "-C", filepath.Join(fileDir, repoName))
+	cmd.Run()
+
+	cmd = exec.Command("rm", filePath)
+	cmd.Run()
+
+	cmd = exec.Command("tar", "-czf", filePath, "-C", filepath.Join(fileDir, repoName), ".")
+	cmd.Run()
+
+	cmd = exec.Command("rm", "-rf", filepath.Join(fileDir, repoName))
+	cmd.Run()
+
 }
 
 func loginPivnet(token string) {
@@ -219,9 +241,10 @@ func DownloadDocker(imageName, path, fileName string) {
 	cmd.Wait()
 
 	//Untar
-	cmd = exec.Command("tar", "-xvf", filepath.Join(imagePath, "rootfs.tar"), "-C", filepath.Join(imagePath, "rootfs/"), "--exclude='dev/*'")
+	cmd = exec.Command("tar", "-xvf", filepath.Join(imagePath, "rootfs.tar"), "-C", filepath.Join(imagePath, "rootfs/"), "--exclude=dev/*")
 	cmd.Run()
-	//remove the tar file
+
+	// remove the tar file
 	cmd = exec.Command("rm", filepath.Join(imagePath, "rootfs.tar"))
 	cmd.Run()
 	//tar the metadata.json and rootfs folder together
