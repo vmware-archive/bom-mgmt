@@ -36,7 +36,7 @@ func (c *UploadBitsCommand) Execute([]string) error {
 		return err
 	}
 
-	bom := model.GetBom(c.BitsDir, dat)
+	bom := model.GetBom(dat)
 	allBits := bom.Bits
 
 	if err = validateBits(allBits, c.BitsDir); err != nil {

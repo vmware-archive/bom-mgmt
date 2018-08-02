@@ -2,8 +2,6 @@ vendor
 .DS_Store
 .wercker
 *.iml
+*.sh
 bom.yml
-uploader.sh
-downloader.sh
-config.json
 *.old

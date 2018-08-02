@@ -96,17 +96,38 @@ All of the necessary parameters can either be passed on the command line or as e
 |bits       | MINIO_BITS_DIR   |
 |bom        | MINIO_BOM        |
 
-### Resource Types
+## Resource Types
 
 | Type           | Additional BoM Params        | Requirements                                | Output                           |
 | -------------- | ---------------------------- | ------------------------------------------- | -------------------------------- |
 |file            | url                          |                                             | the specified file               |
-|git             | branch, gitRepo              |                                             | .zip of the repo                 |
+|git             | branch, gitRepo              |                                             | .tgz of the repo                 |
 |docker          | imageName                    | Uses docker environment from machine        | .tgz of the image                |
 |vmware          |                              | Need to provide myvmware credentials in BoM | the specified file               |
 |pivnet-tile     | productSlug, globs, version  | Need to provide pivnetToken in Bom          | .tgz of tile and needed stemcell |
 |pivnet-non-tile | productSlug, globs, version  | Need to provide pivnetToken in Bom          | the specified file               |
 
+### File Paths
+| Type           | Path                                                                    |
+| -------------- | ----------------------------------------------------------------------- |
+|file            | {MINIO_BITS_DIR}/resources/file/{filename}                              |
+|git             | {MINIO_BITS_DIR}/resources/git/{filename}                               |
+|docker          | {MINIO_BITS_DIR}/resources/docker/{filename}                            |
+|vmware          | {MINIO_BITS_DIR}/resources/vmware/{filename}                            |
+|pivnet-tile     | {MINIO_BITS_DIR}/resources/pivnet-tile/{productSlug}-tarball/{filename} |
+|pivnet-non-tile | {MINIO_BITS_DIR}/resources/pivnet-non-tile/{filename}                   |
+
+## Generating Resources Block
+This command will use the contents of the BoM and Minio server information to generate a `resources` block that can be used in a Concourse pipeline. Each resource will be of type `s3` and point to the Minio server and bucket provided using the paths above.
+
+```
+export MINIO_HOST="localhost:9000"
+export MINIO_ACCESS_KEY="key"
+export MINIO_SECRET="secretsquirrel"
+
+bom-mgmt generate-resources --bom "bom.yml" --bucket "bar"
+```
+
 ## Assumptions
 
-- The current state of the product assumes that all file names in the BoM are relative to the `MINIO_BITS_DIR` parameter.
+- The Docker CLI is present on the system running this script

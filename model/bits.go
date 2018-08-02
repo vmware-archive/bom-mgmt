@@ -27,7 +27,7 @@ type Bom struct {
 	Iaas             string        `yaml:"iaas"`
 }
 
-func GetBom(path string, bomBytes []byte) Bom {
+func GetBom(bomBytes []byte) Bom {
 	var bom Bom
 	if err := yaml.UnmarshalStrict(bomBytes, &bom); err != nil {
 		log.Fatalln("unable to parse bom " + err.Error())

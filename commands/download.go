@@ -33,7 +33,7 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 	dat, err := ioutil.ReadFile(c.Bom)
 	check(err)
 
-	bom := model.GetBom(c.BitsDir, dat)
+	bom := model.GetBom(dat)
 	allBits := bom.Bits
 
 	writeMyVmwareCreds(bom)
@@ -72,6 +72,9 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 			log.Fatalln("Resource Type '" + resourceType + "' is not recognized")
 		}
 	}
+
+	cmd := exec.Command("ls", "-la", "-R", filepath.Join(c.BitsDir, "resources"))
+	cmd.Run()
 
 	return nil
 }
@@ -173,6 +176,9 @@ func DownloadPivnetTile(c *pivnet.DownloadProductFilesCommand, token, iaas, file
 	cmd := exec.Command("tar", "-czf", filepath.Join(c.DownloadDir+"-tarball", fileName), "-C", c.DownloadDir, ".")
 	cmd.Run()
 
+	cmd = exec.Command("rm", "-rf", c.DownloadDir)
+	cmd.Run()
+
 }
 
 func DownloadPivnetNonTile(c *pivnet.DownloadProductFilesCommand, token string) {
@@ -249,6 +255,9 @@ func DownloadDocker(imageName, path, fileName string) {
 	cmd.Run()
 	//tar the metadata.json and rootfs folder together
 	cmd = exec.Command("tar", "-czf", filepath.Join(path, fileName), "-C", imagePath, ".")
+	cmd.Run()
+
+	cmd = exec.Command("rm", "-rf", imagePath)
 	cmd.Run()
 
 }
