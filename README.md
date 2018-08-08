@@ -27,6 +27,8 @@ bits:
 - name: vmware_tool.ova
   contentType: application/vmware
   resourceType: vmware
+  productSlug: vmware_tool-1.1.1.ova
+  group: "Set of Tools"
 - name: pivotal-container-service-1.1.2.tgz
   contentType: application/gzip
   productSlug: pivotal-container-service
@@ -103,7 +105,7 @@ All of the necessary parameters can either be passed on the command line or as e
 |file            | url                          |                                             | the specified file               |
 |git             | branch, gitRepo              |                                             | .tgz of the repo                 |
 |docker          | imageName                    | Uses docker environment from machine        | .tgz of the image                |
-|vmware          |                              | Need to provide myvmware credentials in BoM | the specified file               |
+|vmware          | productSlug, group           | Need to provide myvmware credentials in BoM | the specified file               |
 |pivnet-tile     | productSlug, globs, version  | Need to provide pivnetToken in Bom          | .tgz of tile and needed stemcell |
 |pivnet-non-tile | productSlug, globs, version  | Need to provide pivnetToken in Bom          | the specified file               |
 
