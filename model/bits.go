@@ -15,8 +15,10 @@ type MinioObject struct {
 	Globs        []string `yaml:"globs"`
 	Version      string   `yaml:"version"`
 	ImageName    string   `yaml:"imageName"`
+	Tag          string   `yaml:"tag"`
 	GitRepo      string   `yaml:"gitRepo"`
 	Branch       string   `yaml:"branch"`
+	Group        string   `yaml:"group"`
 }
 
 type Bom struct {

@@ -14,12 +14,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"docker.io/go-docker"
 	"docker.io/go-docker/api/types"
 	"docker.io/go-docker/api/types/container"
 	"github.com/pivotalservices/bom-mgmt/model"
+	"github.com/pivotalservices/bom-mgmt/shell"
 
 	pivnet "github.com/pivotal-cf/pivnet-cli/commands"
 )
@@ -35,8 +35,6 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 
 	bom := model.GetBom(dat)
 	allBits := bom.Bits
-
-	writeMyVmwareCreds(bom)
 
 	for _, file := range allBits {
 		fileDir := filepath.Join(c.BitsDir, "resources", file.ResourceType)
@@ -63,11 +61,12 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 				Globs:          file.Globs,
 			}, bom.PivnetToken, bom.Iaas, file.Name)
 		case "docker":
-			DownloadDocker(file.ImageName, fileDir, file.Name)
+			DownloadDocker(file.ImageName, file.Tag, fileDir, file.Name)
 		case "git":
 			DownloadGit(filePath, file.GitRepo, file.Branch, fileDir)
 		case "vmware":
-			DownloadVMWare(file.Name, fileDir)
+			writeMyVmwareCreds(bom, fileDir)
+			DownloadVMWare(file.Name, file.Group, file.ProductSlug, fileDir)
 		default:
 			log.Fatalln("Resource Type '" + resourceType + "' is not recognized")
 		}
@@ -105,7 +104,6 @@ func DownloadGit(filePath, repo, branch, fileDir string) {
 	DownloadFile(filePath, url)
 
 	repoName := strings.Split(repo, "/")[len(strings.Split(repo, "/"))-1]
-	log.Println(repoName)
 
 	os.MkdirAll(filepath.Join(fileDir, repoName), os.ModePerm)
 
@@ -169,8 +167,8 @@ func DownloadPivnetTile(c *pivnet.DownloadProductFilesCommand, token, iaas, file
 			}
 			err = downloadStemcellCmd.Execute(make([]string, 0))
 		}
+		check(err)
 	}
-	check(err)
 
 	os.MkdirAll(c.DownloadDir+"-tarball", os.ModePerm)
 	cmd := exec.Command("tar", "-czf", filepath.Join(c.DownloadDir+"-tarball", fileName), "-C", c.DownloadDir, ".")
@@ -186,47 +184,31 @@ func DownloadPivnetNonTile(c *pivnet.DownloadProductFilesCommand, token string) 
 	downloadPivnet(c)
 }
 
-func DownloadVMWare(fileName, fileDir string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-	defer cancel()
-	cli, err := docker.NewEnvClient()
-	check(err)
-
+func DownloadVMWare(fileName, group, slug, fileDir string) {
 	const imageName = "apnex/myvmw"
-	out, err := cli.ImagePull(ctx, imageName, types.ImagePullOptions{})
-	check(err)
-	io.Copy(os.Stdout, out)
-	log.Println("fileDir:" + fileDir)
-	resp, err := cli.ContainerCreate(ctx, &container.Config{
-		Image: imageName,
-		Cmd:   []string{"get " + fileName},
-	}, &container.HostConfig{
-		Binds: []string{fileDir + ":/vmwfiles"},
-	}, nil, "")
-	check(err)
-
-	err = cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
-	check(err)
-	waitC, errC := cli.ContainerWait(ctx, resp.ID, "not-running")
-	select {
-	case <-waitC:
-		log.Println("done")
-	case <-errC:
-		log.Println("Download exceeded timeout, but still attempting to finish in background")
-	}
-
-	fmt.Println(resp)
+	cmd := fmt.Sprintf("docker pull %s", imageName)
+	shell.RunCommand(cmd)
+	cmd = fmt.Sprintf("docker run -v %s:/vmwfiles %s", fileDir, imageName)
+	shell.RunCommand(cmd)
+	cmd = fmt.Sprintf("docker run -v %s:/vmwfiles %s \"%s\"", fileDir, imageName, group)
+	shell.RunCommand(cmd)
+	cmd = fmt.Sprintf("docker run -v %s:/vmwfiles %s get %s", fileDir, imageName, slug)
+	shell.RunCommand(cmd)
+	cmd = fmt.Sprintf("mv %s %s", filepath.Join(fileDir, slug), filepath.Join(fileDir, fileName))
+	shell.RunCommand(cmd)
 }
 
-func DownloadDocker(imageName, path, fileName string) {
-	if _, err := os.Stat(filepath.Join(path, fileName)); os.IsExist(err) {
-		return
-	}
+func DownloadDocker(imageName, tag, path, fileName string) {
 	os.MkdirAll(path+"/"+imageName+"/rootfs", os.ModePerm)
 	imagePath := filepath.Join(path, imageName)
 	copyMetadata(imagePath)
 
-	cid := runContainer(imageName)
+	var cid string
+	if tag == "" {
+		cid = runContainer(imageName)
+	} else {
+		cid = runContainer(imageName + ":" + tag)
+	}
 
 	cmd := exec.Command("docker", "export", cid)
 
@@ -310,7 +292,7 @@ func runStemcellScript(path string) string {
 	return strings.Trim(string(version), "\n")
 }
 
-func writeMyVmwareCreds(bom model.Bom) {
-	err := ioutil.WriteFile("./config.json", model.GetMyVmwareCredentials(bom), 0644)
+func writeMyVmwareCreds(bom model.Bom, fileDir string) {
+	err := ioutil.WriteFile(filepath.Join(fileDir, "config.json"), model.GetMyVmwareCredentials(bom), 0644)
 	check(err)
 }

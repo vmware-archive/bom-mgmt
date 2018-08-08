@@ -25,24 +25,16 @@ const BUCKET_LOCATION = ""
 func (c *UploadBitsCommand) Execute([]string) error {
 	// Initialize minio client object.
 	minioClient, err := minio.New(c.HostName, c.AccessKey, c.SecretAccessKey, false)
-	if err != nil {
-		log.Fatalln(err)
-		return err
-	}
+	check(err)
 
 	dat, err := ioutil.ReadFile(c.Bom)
-	if err != nil {
-		log.Fatalln(err)
-		return err
-	}
+	check(err)
 
 	bom := model.GetBom(dat)
 	allBits := bom.Bits
 
-	if err = validateBits(allBits, c.BitsDir); err != nil {
-		log.Fatalln(err)
-		return err
-	}
+	err = validateBits(allBits, c.BitsDir)
+	check(err)
 
 	err = minioClient.MakeBucket(c.Bucket, BUCKET_LOCATION)
 	if err != nil {
@@ -65,10 +57,7 @@ func (c *UploadBitsCommand) Execute([]string) error {
 			bucketPath = filepath.Join(bucketPath, file.ProductSlug+"-tarball")
 		}
 		n, err := minioClient.FPutObject(c.Bucket, filepath.Join(bucketPath, file.Name), filepath.Join(filePath, file.Name), minio.PutObjectOptions{ContentType: file.ContentType})
-		if err != nil {
-			log.Fatalln(err)
-			return err
-		}
+		check(err)
 		log.Printf("Successfully uploaded %s of size %d\n", file.Name, n)
 	}
 

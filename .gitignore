@@ -5,3 +5,5 @@ vendor
 *.sh
 bom.yml
 *.old
+bom-mgmt-linux
+bom-mgmt-osx
