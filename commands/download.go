@@ -44,13 +44,14 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 		case "file":
 			DownloadFile(filePath, file.URL)
 		case "pivnet-non-tile":
+			os.MkdirAll(filepath.Join(fileDir, file.ProductSlug), os.ModePerm)
 			DownloadPivnetNonTile(&pivnet.DownloadProductFilesCommand{
 				ProductSlug:    file.ProductSlug,
 				ReleaseVersion: file.Version,
-				DownloadDir:    fileDir,
+				DownloadDir:    filepath.Join(fileDir, file.ProductSlug),
 				AcceptEULA:     false,
 				Globs:          file.Globs,
-			}, bom.PivnetToken)
+			}, bom.PivnetToken, file.Name)
 		case "pivnet-tile":
 			os.MkdirAll(filepath.Join(fileDir, file.ProductSlug), os.ModePerm)
 			DownloadPivnetTile(&pivnet.DownloadProductFilesCommand{
@@ -179,9 +180,13 @@ func DownloadPivnetTile(c *pivnet.DownloadProductFilesCommand, token, iaas, file
 
 }
 
-func DownloadPivnetNonTile(c *pivnet.DownloadProductFilesCommand, token string) {
+func DownloadPivnetNonTile(c *pivnet.DownloadProductFilesCommand, token, filename string) {
 	loginPivnet(token)
 	downloadPivnet(c)
+	cmd := fmt.Sprintf("find %s -name %s | xargs -I '{}' mv {} %s", filepath.Join(c.DownloadDir, ".."), c.Globs[0], filepath.Join(c.DownloadDir, "..", filename))
+	shell.RunCommand(cmd)
+	cmd = fmt.Sprintf("rm -rf %s", c.DownloadDir)
+	shell.RunCommand(cmd)
 }
 
 func DownloadVMWare(fileName, group, slug, fileDir string) {
