@@ -67,7 +67,7 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 			DownloadGit(filePath, file.GitRepo, file.Branch, fileDir)
 		case "vmware":
 			writeMyVmwareCreds(bom, fileDir)
-			DownloadVMWare(file.Name, file.Group, file.ProductSlug, fileDir)
+			DownloadVMWare(file.Name, file.ProductSlug, fileDir)
 		default:
 			log.Fatalln("Resource Type '" + resourceType + "' is not recognized")
 		}
@@ -189,16 +189,12 @@ func DownloadPivnetNonTile(c *pivnet.DownloadProductFilesCommand, token, filenam
 	shell.RunCommand(cmd)
 }
 
-func DownloadVMWare(fileName, group, slug, fileDir string) {
-	const imageName = "apnex/myvmw"
+func DownloadVMWare(fileName, slug, fileDir string) {
+	const imageName = "apnex/vmw-cli"
 	cmd := fmt.Sprintf("docker pull %s", imageName)
 	shell.RunCommand(cmd)
-	cmd = fmt.Sprintf("docker run -v %s:/vmwfiles %s", fileDir, imageName)
-	shell.RunCommand(cmd)
-	cmd = fmt.Sprintf("docker run -v %s:/vmwfiles %s \"%s\"", fileDir, imageName, group)
-	shell.RunCommand(cmd)
-	cmd = fmt.Sprintf("docker run -v %s:/vmwfiles %s get %s", fileDir, imageName, slug)
-	shell.RunCommand(cmd)
+	cmd = fmt.Sprintf("docker run -e VMWUSER -e VMWPASS -v %s:/files %s get %s", fileDir, imageName, slug)
+	shell.RunCommandIgnoreError(cmd)
 	cmd = fmt.Sprintf("mv %s %s", filepath.Join(fileDir, slug), filepath.Join(fileDir, fileName))
 	shell.RunCommand(cmd)
 }
@@ -298,6 +294,6 @@ func runStemcellScript(path string) string {
 }
 
 func writeMyVmwareCreds(bom model.Bom, fileDir string) {
-	err := ioutil.WriteFile(filepath.Join(fileDir, "config.json"), model.GetMyVmwareCredentials(bom), 0644)
-	check(err)
+	os.Setenv("VMWUSER", bom.MyVmwareUser)
+	os.Setenv("VMWPASS", bom.MyVmwarePassword)
 }

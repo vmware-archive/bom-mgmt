@@ -18,7 +18,6 @@ type MinioObject struct {
 	Tag          string   `yaml:"tag"`
 	GitRepo      string   `yaml:"gitRepo"`
 	Branch       string   `yaml:"branch"`
-	Group        string   `yaml:"group"`
 }
 
 type Bom struct {

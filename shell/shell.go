@@ -9,7 +9,15 @@ import (
 	"os/exec"
 )
 
+func RunCommandIgnoreError(command string) {
+	runCommand(command, true)
+}
+
 func RunCommand(command string) {
+	runCommand(command, false)
+}
+
+func runCommand(command string, ignoreError bool) {
 	fmt.Println("$: " + command)
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd := exec.Command("sh", "-c", command)
@@ -34,7 +42,7 @@ func RunCommand(command string) {
 	}()
 
 	err = cmd.Wait()
-	if err != nil {
+	if err != nil && !ignoreError {
 		log.Fatalf("cmd.Run() failed with %s\n", err)
 	}
 }
