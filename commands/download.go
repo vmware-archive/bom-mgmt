@@ -220,31 +220,37 @@ func DownloadVMWare(fileName, slug, productFamily, fileDir string) {
 		// Run index against product family vmware-nsx-t-data-center & vmware-pivotal-container-service by default
 		nsx_t_product_family := "vmware-nsx-t-data-center"
 		cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, nsx_t_product_family)
-		shell.RunCommandIgnoreError(cmd)
+		shell.RunCommand(cmd)
 
 		pks_product_family := "vmware-pivotal-container-service"
 		cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, pks_product_family)
-		shell.RunCommandIgnoreError(cmd)
+		shell.RunCommand(cmd)
 
 		vmware_vsphere_product_family := "vmware-vsphere"
 		fmt.Println("WARNING!! Downloading of the vmware-vsphere product family can take a long time, upwards of 5 minutes!!")
 		cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, vmware_vsphere_product_family)
-		shell.RunCommandIgnoreError(cmd)
+		shell.RunCommand(cmd)
 
 		if (productFamily != "" &&  productFamily != "vmware-vsphere") {
 			cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, productFamily)
-			shell.RunCommandIgnoreError(cmd)
+			shell.RunCommand(cmd)
 		}
 
 	}
 
-	// Run index at top level
+	// Run find at top level
+	fmt.Println("\nJust running a generic find for available NSX products!!")
+	cmd = fmt.Sprintf("%s find fileName:nsx*", apex_vmw_cli_docker_start_cmd)
+	shell.RunCommand(cmd)
+
+	// Run find for matching product
+	fmt.Printf("\nJust running a match for specified Product: %s!!\n", slug)
 	cmd = fmt.Sprintf("%s find fileName:%s", apex_vmw_cli_docker_start_cmd, slug)
-	shell.RunCommandIgnoreError(cmd)
+	shell.RunCommand(cmd)
 
 	// Default handling of product slug
 	cmd = fmt.Sprintf("%s get %s", apex_vmw_cli_docker_start_cmd, slug)
-	shell.RunCommandIgnoreError(cmd)
+	shell.RunCommand(cmd)
 
 	cmd = fmt.Sprintf("mv %s %s", filepath.Join(fileDir, slug), filepath.Join(fileDir, fileName))
 	shell.RunCommand(cmd)
