@@ -7,17 +7,18 @@ import (
 )
 
 type MinioObject struct {
-	Name         string   `yaml:"name"`
-	ContentType  string   `yaml:"contentType"`
-	ResourceType string   `yaml:"resourceType"`
-	URL          string   `yaml:"url"`
-	ProductSlug  string   `yaml:"productSlug"`
-	Globs        []string `yaml:"globs"`
-	Version      string   `yaml:"version"`
-	ImageName    string   `yaml:"imageName"`
-	Tag          string   `yaml:"tag"`
-	GitRepo      string   `yaml:"gitRepo"`
-	Branch       string   `yaml:"branch"`
+	Name          string   `yaml:"name"`
+	ContentType   string   `yaml:"contentType"`
+	ResourceType  string   `yaml:"resourceType"`
+	URL           string   `yaml:"url"`
+	ProductSlug   string   `yaml:"productSlug"`
+	ProductFamily string   `yaml:"productFamily"`
+	Globs        []string  `yaml:"globs"`
+	Version       string   `yaml:"version"`
+	ImageName     string   `yaml:"imageName"`
+	Tag           string   `yaml:"tag"`
+	GitRepo       string   `yaml:"gitRepo"`
+	Branch        string   `yaml:"branch"`
 }
 
 type Bom struct {

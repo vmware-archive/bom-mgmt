@@ -67,7 +67,7 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 			DownloadGit(filePath, file.GitRepo, file.Branch, fileDir)
 		case "vmware":
 			writeMyVmwareCreds(bom, fileDir)
-			DownloadVMWare(file.Name, file.ProductSlug, fileDir)
+			DownloadVMWare(file.Name, file.ProductSlug, file.ProductFamily, fileDir)
 		default:
 			log.Fatalln("Resource Type '" + resourceType + "' is not recognized")
 		}
@@ -172,6 +172,11 @@ func DownloadPivnetTile(c *pivnet.DownloadProductFilesCommand, token, iaas, file
 	}
 
 	os.MkdirAll(c.DownloadDir+"-tarball", os.ModePerm)
+
+	// Cleanup empty stemcells or other downloads
+	cleanup_empty_files_cmd := exec.Command(fmt.Sprintf("find %s -size 0 -exec rm {} \\;", c.DownloadDir))
+	cleanup_empty_files_cmd.Run()
+
 	cmd := exec.Command("tar", "-czf", filepath.Join(c.DownloadDir+"-tarball", fileName), "-C", c.DownloadDir, ".")
 	cmd.Run()
 
@@ -189,12 +194,54 @@ func DownloadPivnetNonTile(c *pivnet.DownloadProductFilesCommand, token, filenam
 	shell.RunCommand(cmd)
 }
 
-func DownloadVMWare(fileName, slug, fileDir string) {
+func DownloadVMWare(fileName, slug, productFamily, fileDir string) {
 	const imageName = "apnex/vmw-cli"
 	cmd := fmt.Sprintf("docker pull %s", imageName)
 	shell.RunCommand(cmd)
-	cmd = fmt.Sprintf("docker run -e VMWUSER -e VMWPASS -v %s:/files %s get %s", fileDir, imageName, slug)
+
+	// Use absolute path for specifying volumes
+	mount_path := fileDir
+	if (! strings.HasPrefix(mount_path, "/")) {
+		mount_path = fmt.Sprintf("${PWD}/%s", mount_path)
+	}
+	//cmd = fmt.Sprintf("docker run -e $VMWUSER -e $VMWPASS -v %s:/files %s list", mount_path, imageName )
+	//shell.RunCommandIgnoreError(cmd)
+
+	// cmd = fmt.Sprintf("env")
+	// shell.RunCommandIgnoreError(cmd)
+
+ 	apex_vmw_cli_docker_start_cmd := fmt.Sprintf("docker run -e VMWUSER -e VMWPASS -v %s:/files %s ",
+																										mount_path,
+																										imageName)
+
+	cmd = fmt.Sprintf("%s list", apex_vmw_cli_docker_start_cmd)
+	shell.RunCommand(cmd)
+
+	// Run index at top level
+	cmd = fmt.Sprintf("%s find fileName:nsx*", apex_vmw_cli_docker_start_cmd)
 	shell.RunCommandIgnoreError(cmd)
+
+	// No need to index the separate product families
+	// Use pre-built indexes
+	/*
+	// Run index against product family vmware-nsx-t-data-center & vmware-pivotal-container-service by default
+	default_nsx_t_product_family := "vmware-nsx-t-data-center"
+	cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, default_nsx_t_product_family)
+	shell.RunCommandIgnoreError(cmd)
+	default_pks_product_family := "vmware-pivotal-container-service"
+	cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, default_pks_product_family)
+	shell.RunCommandIgnoreError(cmd)
+
+	if (productFamily != "" ) {
+		cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, productFamily)
+		shell.RunCommandIgnoreError(cmd)
+	}
+	*/
+
+	// Default handling of product slug
+	cmd = fmt.Sprintf("%s get %s", apex_vmw_cli_docker_start_cmd, slug)
+	shell.RunCommandIgnoreError(cmd)
+
 	cmd = fmt.Sprintf("mv %s %s", filepath.Join(fileDir, slug), filepath.Join(fileDir, fileName))
 	shell.RunCommand(cmd)
 }
