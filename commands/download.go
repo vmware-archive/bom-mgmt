@@ -204,39 +204,43 @@ func DownloadVMWare(fileName, slug, productFamily, fileDir string) {
 	if (! strings.HasPrefix(mount_path, "/")) {
 		mount_path = fmt.Sprintf("${PWD}/%s", mount_path)
 	}
-	//cmd = fmt.Sprintf("docker run -e $VMWUSER -e $VMWPASS -v %s:/files %s list", mount_path, imageName )
-	//shell.RunCommandIgnoreError(cmd)
 
-	// cmd = fmt.Sprintf("env")
-	// shell.RunCommandIgnoreError(cmd)
-
- 	apex_vmw_cli_docker_start_cmd := fmt.Sprintf("docker run -e VMWUSER -e VMWPASS -v %s:/files %s ",
+	apex_vmw_cli_docker_start_cmd := fmt.Sprintf("docker run -e VMWUSER -e VMWPASS -v %s:/files %s ",
 																										mount_path,
 																										imageName)
 
-	cmd = fmt.Sprintf("%s list", apex_vmw_cli_docker_start_cmd)
-	shell.RunCommand(cmd)
+	if _, err := os.Stat(fmt.Sprintf("%s/fileIndex.json", fileDir)); os.IsNotExist(err) {
+		fmt.Printf("Unable to find cached index file: %s/fileIndex.json!!\n", mount_path)
+		fmt.Printf("Building indexes before proceeding with download of product file: %s\n", slug)
+
+		// No cached indexes exists
+		cmd = fmt.Sprintf("%s list", apex_vmw_cli_docker_start_cmd)
+		shell.RunCommand(cmd)
+
+		// Run index against product family vmware-nsx-t-data-center & vmware-pivotal-container-service by default
+		nsx_t_product_family := "vmware-nsx-t-data-center"
+		cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, nsx_t_product_family)
+		shell.RunCommandIgnoreError(cmd)
+
+		pks_product_family := "vmware-pivotal-container-service"
+		cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, pks_product_family)
+		shell.RunCommandIgnoreError(cmd)
+
+		vmware_vsphere_product_family := "vmware-vsphere"
+		fmt.Println("WARNING!! Downloading of the vmware-vsphere product family can take a long time, upwards of 5 minutes!!")
+		cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, vmware_vsphere_product_family)
+		shell.RunCommandIgnoreError(cmd)
+
+		if (productFamily != "" &&  productFamily != "vmware-vsphere") {
+			cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, productFamily)
+			shell.RunCommandIgnoreError(cmd)
+		}
+
+	}
 
 	// Run index at top level
-	cmd = fmt.Sprintf("%s find fileName:nsx*", apex_vmw_cli_docker_start_cmd)
+	cmd = fmt.Sprintf("%s find fileName:%s", apex_vmw_cli_docker_start_cmd, slug)
 	shell.RunCommandIgnoreError(cmd)
-
-	// No need to index the separate product families
-	// Use pre-built indexes
-	/*
-	// Run index against product family vmware-nsx-t-data-center & vmware-pivotal-container-service by default
-	default_nsx_t_product_family := "vmware-nsx-t-data-center"
-	cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, default_nsx_t_product_family)
-	shell.RunCommandIgnoreError(cmd)
-	default_pks_product_family := "vmware-pivotal-container-service"
-	cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, default_pks_product_family)
-	shell.RunCommandIgnoreError(cmd)
-
-	if (productFamily != "" ) {
-		cmd = fmt.Sprintf("%s index %s", apex_vmw_cli_docker_start_cmd, productFamily)
-		shell.RunCommandIgnoreError(cmd)
-	}
-	*/
 
 	// Default handling of product slug
 	cmd = fmt.Sprintf("%s get %s", apex_vmw_cli_docker_start_cmd, slug)
