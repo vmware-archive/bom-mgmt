@@ -142,10 +142,15 @@ func DownloadPivnetTile(c *pivnet.DownloadProductFilesCommand, token, iaas, file
 	downloadPivnet(c)
 
 	//stemcell stuff
-	stemcellVersion := runStemcellScript(c.DownloadDir)
+	stemcellOS, stemcellVersion := runStemcellScript(c.DownloadDir)
+
+	productSlug := "stemcells"
+	if stemcellOS == "ubuntu-xenial" {
+		productSlug = "stemcells-ubuntu-xenial"
+	}
 
 	downloadStemcellCmd := &pivnet.DownloadProductFilesCommand{
-		ProductSlug:    "stemcells",
+		ProductSlug:    productSlug,
 		ReleaseVersion: stemcellVersion,
 		DownloadDir:    c.DownloadDir,
 		AcceptEULA:     false,
@@ -334,7 +339,7 @@ func copyMetadata(path string) {
 	check(err)
 }
 
-func runStemcellScript(path string) string {
+func runStemcellScript(path string) (string, string) {
 	cmd := fmt.Sprintf("find \"%s\" -name *.pivotal | sort | head -1", path)
 	fileName, err := exec.Command("sh", "-c", cmd).Output()
 	check(err)
@@ -347,7 +352,11 @@ func runStemcellScript(path string) string {
 	version, err := exec.Command("sh", "-c", cmd).Output()
 	check(err)
 
-	return strings.Trim(string(version), "\n")
+	cmd = fmt.Sprintf("unzip -p \"%s\" \"%s\" | grep -A5 'stemcell_criteria:' | grep 'os:' | awk '{print $NF}' ", strings.Trim(string(fileName), "\n"), strings.Trim(string(metadata), "\n"))
+	stemcellOS, err := exec.Command("sh", "-c", cmd).Output()
+	check(err)
+
+	return strings.Trim(string(stemcellOS), "\n"), strings.Trim(string(version), "\n")
 }
 
 func writeMyVmwareCreds(bom model.Bom, fileDir string) {
