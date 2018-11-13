@@ -22,6 +22,11 @@ import (
 	"github.com/pivotalservices/bom-mgmt/shell"
 
 	pivnet "github.com/pivotal-cf/pivnet-cli/commands"
+
+	// Git related
+	git "gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/plumbing"
+	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 )
 
 type DownloadBitsCommand struct {
@@ -65,6 +70,8 @@ func (c *DownloadBitsCommand) Execute([]string) error {
 			DownloadDocker(file.ImageName, file.Tag, fileDir, file.Name)
 		case "git":
 			DownloadGit(filePath, file.GitRepo, file.Branch, fileDir)
+		case "gitclone":
+			GitClone(fileDir, filePath, file)
 		case "vmware":
 			writeMyVmwareCreds(bom, fileDir)
 			DownloadVMWare(file.Name, file.ProductSlug, file.ProductFamily, fileDir)
@@ -98,6 +105,54 @@ func DownloadFile(filePath, url string) {
 	// Write the body to file
 	_, err = io.Copy(out, resp.Body)
 	check(err)
+}
+
+func GitClone(fileDir string, filePath string, file model.MinioObject) {
+
+	var auth *githttp.BasicAuth
+
+	repoName := strings.Split(file.GitRepo, "/")[len(strings.Split(file.GitRepo, "/"))-1]
+	repoDir := filepath.Join(fileDir, repoName)
+	os.MkdirAll(repoDir, os.ModePerm)
+
+	log.Println("checking out", file.GitRepo, "as", repoDir)
+
+	// add credentials if passed in
+	if file.GitUser != "" && file.GitPassword != "" {
+		log.Println("with user", file.GitUser)
+		auth = &githttp.BasicAuth{
+			Username: file.GitUser,
+			Password: file.GitPassword,
+		}
+	}
+
+	// // clean up left-behind files due to past failure
+	// cmd := exec.Command("rm", "-rf", filepath.Join(fileDir, file.Name))
+	// cmd.Run()
+
+	// clone the repository
+	_, err := git.PlainClone(repoDir, false, &git.CloneOptions{
+		Auth:          auth,
+		URL:           file.GitRepo,
+		Progress:      os.Stdout,
+		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", file.Branch)),
+		SingleBranch:  true,
+	})
+	check(err)
+
+	// wipe out git information
+	cmd := exec.Command("rm", "-rf", filepath.Join(repoDir, ".git"))
+	err = cmd.Run()
+	check(err)
+
+	cmd = exec.Command("tar", "-czf", filePath, "-C", repoDir, ".")
+	err = cmd.Run()
+	check(err)
+
+	cmd = exec.Command("rm", "-rf", repoDir)
+	err = cmd.Run()
+	check(err)
+
 }
 
 func DownloadGit(filePath, repo, branch, fileDir string) {

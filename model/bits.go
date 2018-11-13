@@ -13,12 +13,14 @@ type MinioObject struct {
 	URL           string   `yaml:"url"`
 	ProductSlug   string   `yaml:"productSlug"`
 	ProductFamily string   `yaml:"productFamily"`
-	Globs        []string  `yaml:"globs"`
+	Globs         []string `yaml:"globs"`
 	Version       string   `yaml:"version"`
 	ImageName     string   `yaml:"imageName"`
 	Tag           string   `yaml:"tag"`
 	GitRepo       string   `yaml:"gitRepo"`
 	Branch        string   `yaml:"branch"`
+	GitUser       string   `yaml:"gitUser"`
+	GitPassword   string   `yaml:"gitPassword"`
 }
 
 type Bom struct {
